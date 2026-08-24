@@ -1,79 +1,49 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from '@inertiajs/react'
-
-const KNOWLEDGE_BASE = [
-  {
-    keywords: ['hi', 'hello', 'hey', 'start', 'assalam', 'aoa', 'help'],
-    response: "Assalamu Alaikum! Welcome to **Libas-E-Maryam** Luxury Boutique Concierge. I am your personal AI Stylist. How may I assist you today with our suits, bridal formals, orders, or sizing?",
-    links: [
-      { label: "👗 View Catalog", url: "/products" },
-      { label: "🗂️ Explore Categories", url: "/categories" }
-    ]
-  },
-  {
-    keywords: ['price', 'cost', 'rate', 'pkr', 'expensive', 'cheap', 'budget'],
-    response: "Our boutique collections range from **PKR 11,500** for Designer 3-Piece Lawn up to **PKR 125,000** for Hand-Worked Bridal Lehengas. We offer Free Express Shipping across Pakistan on all orders over **PKR 10,000**!",
-    links: [{ label: "🛍️ Shop Collection", url: "/products" }]
-  },
-  {
-    keywords: ['shipping', 'delivery', 'deliv', 'ship', 'time', 'cod', 'cash'],
-    response: "🚚 **Delivery Information**:\n• **Free Express Shipping** on orders above **PKR 10,000**!\n• Standard delivery time across Pakistan is **3 to 5 business days**.\n• We accept **Cash on Delivery (COD)** and Direct Bank Transfer at checkout.",
-    links: [{ label: "🛒 Checkout Flow", url: "/checkout" }]
-  },
-  {
-    keywords: ['discount', 'coupon', 'promo', 'code', 'offer', 'sale'],
-    response: "🎉 Special Boutique Offer!\nUse promo code **LIBAS10** or **MARYAM10** at checkout to get an instant **10% OFF** your entire order!",
-    links: [{ label: "👗 Claim Offer on Products", url: "/products" }]
-  },
-  {
-    keywords: ['size', 'sizing', 'stitch', 'custom', 'fit', 'measurement', 'alteration'],
-    response: "📏 We provide standard sizes: **Small (S)**, **Medium (M)**, **Large (L)**, and **Extra Large (XL)**.\n\nWe also offer **Bespoke Custom Tailoring** for bridal and formal ensembles. Contact our master tailors directly via WhatsApp for custom sizing!",
-    links: [{ label: "📞 Whatsapp Custom Orders", external: "https://wa.me/923214676591?text=Hello%20Libas-E-Maryam!%20I%20need%20custom%20stitching%20details." }]
-  },
-  {
-    keywords: ['bridal', 'wedding', 'lehenga', 'peshwas', 'formal', 'heavy', 'organza'],
-    response: "✨ **Bridal & Formal Artistry**:\n• **Exquisite Bridal Handcraft Lehenga** (PKR 125,000)\n• **Hand-Worked Organza Peshwas Ensemble** (PKR 55,000)\n• **Royal Velvet Gilded Festive Suit** (PKR 32,000)\n\nEach heirloom piece is meticulously hand-embroidered with zardozi, dabka, and tilla work.",
-    links: [{ label: "✨ View Bridal Formals", url: "/products?category=Bridal+Formals" }]
-  },
-  {
-    keywords: ['velvet', 'silk', 'lawn', 'material', 'fabric', 'quality', 'pret'],
-    response: "🌸 **Luxury Fabrics Offered**:\n• Micro-Velvet 9000 Festive Suits\n• Pure 80g Raw Silk Anarkalis\n• Premium 100% Cotton Designer Lawn\n• Pure Tissue Organza & Chiffon Dupattas",
-    links: [{ label: "🗂️ Browse All Fabrics", url: "/categories" }]
-  },
-  {
-    keywords: ['contact', 'address', 'location', 'phone', 'whatsapp', 'lahore', 'shop', 'store'],
-    response: "📍 **Libas-E-Maryam Atelier**:\n• **Address**: DHA Phase 5, Lahore, Pakistan\n• **Helpline & WhatsApp**: +92 321 4676591\n• **Email**: concierge@libasemaryam.com",
-    links: [{ label: "✉️ Send Inquiry", url: "/contact" }]
-  }
-]
-
-const DEFAULT_RESPONSE = {
-  response: "I'd be delighted to assist you with Libas-E-Maryam boutique dresses, bridal formals, PKR pricing, or orders! You can browse our full catalog or contact our boutique concierge directly on WhatsApp.",
-  links: [
-    { label: "👗 View Catalog", url: "/products" },
-    { label: "💬 Chat on WhatsApp", external: "https://wa.me/923214676591?text=Hello%20Libas-E-Maryam!%20I%20have%20a%20question." }
-  ]
-}
+import { getShopMetadata, getShopProducts } from '@/api'
 
 export default function BoutiqueAiAssistant() {
   const [isOpen, setIsOpen] = useState(false)
+  const [liveCategories, setLiveCategories] = useState([])
+  const [liveProducts, setLiveProducts] = useState([])
+  const [liveBrands, setLiveBrands] = useState([])
+  const [dataLoaded, setDataLoaded] = useState(false)
+
   const [messages, setMessages] = useState([
     {
       id: 1,
       sender: 'ai',
-      text: "Assalamu Alaikum! I am **Maryam AI**, your boutique stylist. How can I assist your shopping experience today?",
+      text: "Assalamu Alaikum! I am **Maryam AI**, your live store concierge. How can I assist your boutique shopping today?",
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       links: [
-        { label: "👗 Festive & Bridal Suits", query: "bridal" },
-        { label: "🚚 Shipping & COD", query: "shipping" },
-        { label: "🏷️ Promo Code", query: "discount" },
-        { label: "📍 Store Location", query: "contact" }
+        { label: "🗂️ How Many Categories?", query: "how many categories in store?" },
+        { label: "👗 Popular Suits", query: "show all products" },
+        { label: "🚚 Free Delivery Policy", query: "shipping policy" },
+        { label: "🏷️ Promo Code", query: "promo code" }
       ]
     }
   ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
+
+  // Fetch live store metadata and products on mount
+  useEffect(() => {
+    Promise.all([getShopMetadata(), getShopProducts()])
+      .then(([metaRes, prodRes]) => {
+        if (metaRes?.data) {
+          setLiveCategories(metaRes.data.categories || [])
+          setLiveBrands(metaRes.data.brands || [])
+        }
+        if (prodRes?.data) {
+          setLiveProducts(prodRes.data || [])
+        }
+        setDataLoaded(true)
+      })
+      .catch((err) => {
+        console.error("AI Assistant could not fetch live store data:", err)
+      })
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -85,14 +55,140 @@ export default function BoutiqueAiAssistant() {
     }
   }, [messages, isOpen, isTyping])
 
-  const findResponse = (userText) => {
-    const textLower = userText.toLowerCase()
-    for (const item of KNOWLEDGE_BASE) {
-      if (item.keywords.some(kw => textLower.includes(kw))) {
-        return item
+  // Smart Response Engine powered by Live Store Data
+  const generateResponse = (userText) => {
+    const q = userText.toLowerCase().trim()
+
+    // 1. Categories query
+    if (q.includes('categor') || q.includes('catagor') || q.includes('collection type') || q.includes('types of suit') || q.includes('how many categories')) {
+      if (liveCategories.length > 0) {
+        const catList = liveCategories.map(c => `• **${c.name}**`).join('\n')
+        return {
+          response: `We currently have **${liveCategories.length} boutique categories** in store:\n\n${catList}\n\nAll collections feature authentic hand-embroidery and luxury Pakistani fabrics.`,
+          links: [{ label: "🗂️ Explore All Categories", url: "/categories" }]
+        }
+      } else {
+        return {
+          response: "We feature **5 signature boutique categories**: Festive Velvet, Pure Raw Silk, Designer 3-Piece Lawn, Bridal Formals, and Luxury Pret.",
+          links: [{ label: "🗂️ Explore Categories", url: "/categories" }]
+        }
       }
     }
-    return DEFAULT_RESPONSE
+
+    // 2. Products / All Suits / What do you sell query
+    if (q.includes('product') || q.includes('item') || q.includes('suit') || q.includes('dress') || q.includes('what do you sell') || q.includes('show all')) {
+      if (liveProducts.length > 0) {
+        const topProducts = liveProducts.slice(0, 5).map(p => 
+          `• **${p.name}** — PKR ${p.price?.toLocaleString()}${p.is_on_sale ? ` (Sale: PKR ${p.sale_price?.toLocaleString()})` : ''}`
+        ).join('\n')
+        return {
+          response: `✨ Here are our featured boutique ensembles in store:\n\n${topProducts}\n\nWe have **${liveProducts.length} total boutique designs** ready for express dispatch!`,
+          links: [{ label: "👗 View Full Catalog", url: "/products" }]
+        }
+      }
+    }
+
+    // 3. Price / Cost / Cheap / Expensive / Range
+    if (q.includes('price') || q.includes('cost') || q.includes('rate') || q.includes('pkr') || q.includes('cheap') || q.includes('budget') || q.includes('range')) {
+      if (liveProducts.length > 0) {
+        const prices = liveProducts.map(p => p.price).filter(Boolean)
+        const minP = Math.min(...prices)
+        const maxP = Math.max(...prices)
+        return {
+          response: `Our boutique prices range from **PKR ${minP.toLocaleString()}** for Designer 3-Piece Lawn to **PKR ${maxP.toLocaleString()}** for Hand-Worked Bridal Lehengas.\n\n🚚 Enjoy **Free Express Shipping** across Pakistan on all orders above **PKR 10,000**!`,
+          links: [{ label: "🛍️ Shop Collection", url: "/products" }]
+        }
+      }
+    }
+
+    // 4. Bridal / Formal Suits
+    if (q.includes('bridal') || q.includes('wedding') || q.includes('lehenga') || q.includes('peshwas') || q.includes('heavy') || q.includes('zardozi')) {
+      const bridalProds = liveProducts.filter(p => p.category?.name?.toLowerCase().includes('bridal') || p.name?.toLowerCase().includes('bridal') || p.name?.toLowerCase().includes('peshwas'))
+      const text = bridalProds.length > 0 
+        ? bridalProds.map(p => `• **${p.name}** (PKR ${p.price?.toLocaleString()})`).join('\n')
+        : "• **Exquisite Bridal Handcraft Lehenga** (PKR 125,000)\n• **Hand-Worked Organza Peshwas Ensemble** (PKR 55,000)"
+      return {
+        response: `✨ **Bridal & Festive Masterpieces**:\n\n${text}\n\nMeticulously embroidered with authentic zardozi, dabka, and tilla handwork.`,
+        links: [
+          { label: "✨ View Bridal Formals", url: "/products" },
+          { label: "💬 Bespoke Bridal WhatsApp", external: "https://wa.me/923214676591?text=Hello!%20I%20want%20bridal%20customization." }
+        ]
+      }
+    }
+
+    // 5. Velvet / Raw Silk / Lawn / Fabrics
+    if (q.includes('velvet') || q.includes('silk') || q.includes('lawn') || q.includes('fabric') || q.includes('material')) {
+      return {
+        response: "🌸 **Our Signature Fabrics**:\n• **Micro-Velvet 9000** (Festive Winter Wear)\n• **Pure 80g Raw Silk** (Formal Anarkalis)\n• **100% Premium Cotton Lawn** (Designer 3-Piece Sets)\n• **Pure Tissue Organza** (Handworked Dupattas)",
+        links: [{ label: "🗂️ Explore Categories", url: "/categories" }]
+      }
+    }
+
+    // 6. Shipping & Delivery
+    if (q.includes('shipping') || q.includes('deliver') || q.includes('ship') || q.includes('cod') || q.includes('cash on delivery') || q.includes('time')) {
+      return {
+        response: "🚚 **Delivery Policies**:\n• **Free Express Shipping** across Pakistan on all orders over **PKR 10,000**!\n• Standard delivery timeframe: **3 to 5 business days**.\n• We accept **Cash on Delivery (COD)** and Bank Transfer at checkout.",
+        links: [{ label: "🛒 Checkout", url: "/checkout" }]
+      }
+    }
+
+    // 7. Discount / Promo Code
+    if (q.includes('discount') || q.includes('coupon') || q.includes('promo') || q.includes('offer') || q.includes('code') || q.includes('sale')) {
+      return {
+        response: "🎉 **Special Boutique Promotion**!\nUse promo code **LIBAS10** or **MARYAM10** at checkout to receive **10% OFF** your entire order!",
+        links: [{ label: "👗 Use Code on Catalog", url: "/products" }]
+      }
+    }
+
+    // 8. Size / Sizing / Custom Stitching
+    if (q.includes('size') || q.includes('sizing') || q.includes('stitch') || q.includes('custom') || q.includes('fit') || q.includes('alteration')) {
+      return {
+        response: "📏 **Sizing & Tailoring**:\n• Standard Ready-to-Wear sizes: **Small (S)**, **Medium (M)**, **Large (L)**, **Extra Large (XL)**.\n• We also offer **Bespoke Custom Tailoring** for all formal ensembles. Contact our master tailors directly on WhatsApp for custom measurements!",
+        links: [{ label: "📞 WhatsApp Tailor Concierge", external: "https://wa.me/923214676591?text=Hello!%20I%20need%20custom%20stitching%20for%20my%20order." }]
+      }
+    }
+
+    // 9. Location / Address / Contact / Shop / Atelier
+    if (q.includes('location') || q.includes('address') || q.includes('where is') || q.includes('lahore') || q.includes('contact') || q.includes('phone') || q.includes('whatsapp') || q.includes('atelier')) {
+      return {
+        response: "📍 **Libas-E-Maryam Flagship Atelier**:\n• **Address**: DHA Phase 5, Lahore, Pakistan\n• **Helpline & WhatsApp**: +92 321 4676591\n• **Email**: concierge@libasemaryam.com\n• **Boutique Hours**: Mon - Sat (11:00 AM - 9:00 PM)",
+        links: [{ label: "✉️ Send Direct Message", url: "/contact" }]
+      }
+    }
+
+    // 10. Greetings
+    if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('aoa') || q.includes('assalam') || q.includes('help')) {
+      return {
+        response: `Assalamu Alaikum! Welcome to **Libas-E-Maryam**. I can tell you about our **${liveCategories.length || 5} boutique categories**, **${liveProducts.length || 6} designer suits**, prices in PKR, promo codes, or store location. What would you like to know?`,
+        links: [
+          { label: "🗂️ How Many Categories?", query: "how many categories in store?" },
+          { label: "✨ Popular Suits", query: "show all products" }
+        ]
+      }
+    }
+
+    // 11. Generic Search Matching against Live Products & Categories
+    const matchingProds = liveProducts.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      (p.category && p.category.name.toLowerCase().includes(q))
+    )
+
+    if (matchingProds.length > 0) {
+      const prodList = matchingProds.slice(0, 4).map(p => `• **${p.name}** — PKR ${p.price?.toLocaleString()}`).join('\n')
+      return {
+        response: `I found **${matchingProds.length} matching boutique item(s)** for "${userText}":\n\n${prodList}`,
+        links: [{ label: "👗 View Catalog", url: "/products" }]
+      }
+    }
+
+    return {
+      response: `I'm happy to help you with Libas-E-Maryam boutique dresses, bridal formals, categories (${liveCategories.length} categories), prices, or store location! You can explore our catalog or chat with our atelier concierge directly on WhatsApp.`,
+      links: [
+        { label: "👗 View Catalog", url: "/products" },
+        { label: "💬 Chat on WhatsApp", external: "https://wa.me/923214676591?text=Hello!%20I%20have%20a%20question." }
+      ]
+    }
   }
 
   const handleSend = (textToSend) => {
@@ -111,7 +207,7 @@ export default function BoutiqueAiAssistant() {
     setIsTyping(true)
 
     setTimeout(() => {
-      const match = findResponse(queryText)
+      const match = generateResponse(queryText)
       const aiMsg = {
         id: Date.now() + 1,
         sender: 'ai',
@@ -121,7 +217,30 @@ export default function BoutiqueAiAssistant() {
       }
       setMessages(prev => [...prev, aiMsg])
       setIsTyping(false)
-    }, 600)
+    }, 400)
+  }
+
+  // Safe Text & Markdown Renderer (Converts **bold** to <strong> without exposing raw HTML tags)
+  const renderFormattedText = (text) => {
+    if (!text) return null
+    // Clean raw HTML tags if any exist and convert to markdown bold
+    let cleanText = text.replace(/<\/?strong>/gi, '**').replace(/<\/?b>/gi, '**')
+    
+    return cleanText.split('\n').map((line, lIdx) => {
+      if (!line.trim()) return <div key={lIdx} style={{ height: 4 }} />
+
+      const parts = line.split(/(\*\*.*?\*\*)/g)
+      return (
+        <p key={lIdx} style={{ margin: '0 0 4px 0', lineHeight: 1.5 }}>
+          {parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={pIdx} style={{ fontWeight: 700, color: 'inherit' }}>{part.slice(2, -2)}</strong>
+            }
+            return part
+          })}
+        </p>
+      )
+    })
   }
 
   return (
@@ -165,7 +284,7 @@ export default function BoutiqueAiAssistant() {
               <div className="ai-avatar">✨</div>
               <div>
                 <div className="ai-title">Maryam AI — Boutique Concierge</div>
-                <div className="ai-subtitle">● Online | Instant Boutique Assistant</div>
+                <div className="ai-subtitle">● Live Store AI Assistant ({liveCategories.length} categories)</div>
               </div>
             </div>
             <button className="ai-close-btn" onClick={() => setIsOpen(false)}>✕</button>
@@ -177,11 +296,7 @@ export default function BoutiqueAiAssistant() {
               <div key={msg.id} className={`ai-msg-wrap ${msg.sender}`}>
                 <div className="ai-msg-bubble">
                   <div className="ai-msg-text">
-                    {msg.text.split('\n').map((line, idx) => (
-                      <p key={idx} style={{ marginBottom: line ? 6 : 0 }}>
-                        {line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-                      </p>
-                    ))}
+                    {renderFormattedText(msg.text)}
                   </div>
                   
                   {/* Action Links & Quick Chips */}
@@ -237,9 +352,10 @@ export default function BoutiqueAiAssistant() {
 
           {/* Quick Prompts */}
           <div className="ai-quick-bar">
-            <button onClick={() => handleSend("Tell me about bridal suits")}>👗 Bridal Wear</button>
-            <button onClick={() => handleSend("Free shipping policy")}>🚚 Delivery</button>
-            <button onClick={() => handleSend("What is the promo code?")}>🏷️ Discounts</button>
+            <button onClick={() => handleSend("how many categories in store?")}>🗂️ Store Categories</button>
+            <button onClick={() => handleSend("show all products")}>👗 Boutique Suits</button>
+            <button onClick={() => handleSend("shipping policy")}>🚚 Delivery</button>
+            <button onClick={() => handleSend("promo code")}>🏷️ Discounts</button>
           </div>
 
           {/* Input Footer */}
@@ -249,7 +365,7 @@ export default function BoutiqueAiAssistant() {
           >
             <input
               type="text"
-              placeholder="Ask Maryam AI about suits, orders, sizing..."
+              placeholder="Ask Maryam AI about categories, suits, pricing..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="ai-input"

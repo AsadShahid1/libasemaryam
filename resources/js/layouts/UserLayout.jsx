@@ -3,6 +3,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useState, useEffect, useRef } from 'react'
 import { getSearchSuggestions } from '@/api'
 import logoFallback from '@/assets/logo.jpg'
+import BoutiqueAiAssistant from '@/components/BoutiqueAiAssistant'
 
 export default function UserLayout({ children }) {
   const { auth, settings: sharedSettings = {} } = usePage().props
@@ -712,6 +713,9 @@ export default function UserLayout({ children }) {
           </div>
         </div>
       </footer>
+
+      {/* Floating AI Stylist & WhatsApp Widgets */}
+      <BoutiqueAiAssistant />
 
     </div>
   )
